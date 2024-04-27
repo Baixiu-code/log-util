@@ -1,38 +1,71 @@
-package com.baixiu.middleware.log;
+package com.baixiu.middleware.log.core;
 
 import com.alibaba.fastjson.TypeReference;
+import com.baixiu.middleware.log.enums.LogLevelConfigMap;
+import com.baixiu.middleware.log.enums.LoggerLevelEnum;
+import lombok.Getter;
+import lombok.Setter;
+import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Component;
 import java.lang.reflect.Type;
 import java.util.HashSet;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Random;
 import java.util.concurrent.RejectedExecutionException;
 
 /**
+ * 
  * @author baixiu
  * @date 2024年04月21日
  */
+@Setter
+@Getter
 @Component
-public class LogUtil {
+public class LogCoreUtil {
     
-
-    /**
-     * tracerLog
-     */
-    private static Logger TRACER_LOGGER = LoggerFactory.getLogger("TRACER_LOGGER");
+    private static Logger LOGGER = LoggerFactory.getLogger("LOGGER");
+    private static Logger ERROR_LOGGER = LoggerFactory.getLogger("LOGGER-ERROR");
+    private static Logger REQUEST_LOGGER = LoggerFactory.getLogger("LOGGER-REQUEST");
     
-
     static Type logConfigMapType = (new TypeReference<Map<String, Integer>>() {}).getType();
     
     static final Random random = new Random();
 
-    public LogUtil() {
+    /**
+     * 堆栈打印深度
+     */
+    @Value("${stackLineNum}")
+    private Integer stackLineNum;
+
+    /**
+     * 是否打印异常日志
+     */
+    @Value("${logger.errorOn}")
+    private boolean errorOn;
+
+    @Autowired
+    private LogLevelConfigMap logLevelConfigMap;
+
+    
+    
+
+    public LogCoreUtil() {
     }
 
-    protected static boolean isLogOn(LogLevelEnum loglevel, Logger logger) {
+    /**
+     * 指定的日志级别是否开启日志打印
+     * @param loglevel 日志级别
+     * @param logger logger 对象
+     * @return
+     */
+    protected  boolean isOpenByLogLevel(LoggerLevelEnum loglevel, Logger logger) {
         boolean result = false;
-        if (isConfigOn(loglevel, logger)) {
+        if (isConfigOn(loglevel,logger)) {
             switch (loglevel) {
                 case INFO:
                     result = logger.isInfoEnabled();
@@ -60,34 +93,34 @@ public class LogUtil {
         return result;
     }
 
-    protected static boolean isConfigOn(LogLevelEnum loglevel, Logger logger) {
+    protected  boolean isConfigOn(LoggerLevelEnum loglevel, Logger logger) {
         try {
+            //为空 不打开
             if (loglevel == null) {
                 return false;
-            } else {
-                Map<String, Integer> config = (Map) configCenter.getTracerConfig("logger.config", (Object) null, logConfigMapType);
-                if (config != null && !config.isEmpty()) {
-                    Integer range = (Integer) config.get(LogLevelEnum.ALL.name());
-                    if (range == null) {
-                        range = (Integer) config.get(logger.getName());
-                    }
-
-                    if (range == null) {
-                        range = (Integer) config.get(loglevel.name());
-                    }
-
-                    return range == null ? true : (range.intValue() >= 0 && range.intValue() < 100 ? (range.intValue() == 0 ? false : random.nextInt(100) < range.intValue()) : true);
-                } else {
-                    return true;
+            }
+            Map<String, Integer> config = logLevelConfigMap.getLOGGER_LEVEL_MAP ();
+            if (config != null && !config.isEmpty()) {
+                Integer range = (Integer) config.get(LoggerLevelEnum.ALL.name());
+                if (range == null) {
+                    range = (Integer) config.get(logger.getName());
                 }
+
+                if (range == null) {
+                    range = (Integer) config.get(loglevel.name());
+                }
+
+                return range == null ? true : (range.intValue() >= 0 && range.intValue() < 100 ? (range.intValue() == 0 ? false : random.nextInt(100) < range.intValue()) : true);
+            } else {
+                return true;
             }
         } catch (Exception var4) {
             return true;
         }
     }
 
-    private static void trace(Logger logger, String message, Object... arg) {
-        if (isLogOn(LogLevelEnum.TRACE, logger)) {
+    private void trace(Logger logger, String message, Object... arg) {
+        if (isOpenByLogLevel (LoggerLevelEnum.TRACE, logger)) {
             if (arg != null && arg.length > 0 && arg[0] instanceof Throwable) {
                 logger.debug(message, arg[0]);
             } else {
@@ -97,8 +130,8 @@ public class LogUtil {
 
     }
 
-    private static void debug(Logger logger, String message, Object... arg) {
-        if (isLogOn(LogLevelEnum.DEBUG, logger)) {
+    private void debug(Logger logger, String message, Object... arg) {
+        if (isOpenByLogLevel (LoggerLevelEnum.DEBUG, logger)) {
             if (arg != null && arg.length > 0 && arg[0] instanceof Throwable) {
                 logger.debug(message, arg[0]);
             } else {
@@ -108,8 +141,8 @@ public class LogUtil {
 
     }
 
-    private static void info(Logger logger, String message, Object... arg) {
-        if (isLogOn(LogLevelEnum.INFO, logger)) {
+    private void info(Logger logger, String message, Object... arg) {
+        if (isOpenByLogLevel (LoggerLevelEnum.INFO, logger)) {
             if (arg != null && arg.length > 0 && arg[0] instanceof Throwable) {
                 logger.info(message, arg[0]);
             } else {
@@ -119,8 +152,8 @@ public class LogUtil {
 
     }
 
-    private static void warn(Logger logger, String message, Object... arg) {
-        if (isLogOn(LogLevelEnum.WARN, logger)) {
+    private void warn(Logger logger, String message, Object... arg) {
+        if (isOpenByLogLevel (LoggerLevelEnum.WARN, logger)) {
             if (arg != null && arg.length > 0 && arg[0] instanceof Throwable) {
                 logger.warn(message, arg[0]);
             } else {
@@ -130,39 +163,39 @@ public class LogUtil {
 
     }
 
-    private static void error(Logger logger, String message, Object... arg) {
-        if (isLogOn(LogLevelEnum.ERROR, logger)) {
+    private void error(Logger logger, String message, Object... arg) {
+        if (isOpenByLogLevel (LoggerLevelEnum.ERROR, logger)) {
             if (arg != null && arg.length > 0 && arg[0] instanceof Throwable) {
                 logger.error(message, arg[0]);
             } else {
                 logger.error(message, arg);
             }
-
-            TRACER_LOGGER.error(message, arg);
+            LOGGER.error(message, arg);
         }
     }
 
-    public static void error(Object... arg) {
-        String message = getMessage("{}", 4, arg);
-        error(getSoaErrorLogger(), message, arg);
-    }
+   
 
-    public static void error(String message, Object... arg) {
+    public void error(String message, Object... arg) {
         message = getMessage(message, 4, arg);
-        error(getSoaErrorLogger(), message, arg);
+        error(ERROR_LOGGER, message, arg);
     }
 
-    public static void checkAndPrintError(Throwable e) {
+    /**
+     * check 方法用以首先做一次类型校验后进行指定类型异常的打印。
+     * 好处是可以进行指定的异常打印。
+     * @param e throw able 
+     */
+    public void checkAndPrintError(Throwable e) {
         checkAndPrintError(e.getMessage(), e);
     }
 
-    public static void checkAndPrintError(String mess, Throwable e) {
+    public void checkAndPrintError(String mess, Throwable e) {
         Throwable cause = e.getCause();
         if (cause != null) {
             e = cause;
         }
         try {
-            //У���Ƿ�Ϊ�ܾ߳̾������쳣
             if (e instanceof RejectedExecutionException) {
                 mess = getMessage(mess + " rejected.", 4, e);//��ȡmessage
                 error(mess, new Object[0]);
@@ -172,80 +205,27 @@ public class LogUtil {
         }
     }
 
-    public static void exception(String message, Object... arg) {        
-        if(configCenter.isBusinessSwitchOn ("logger.errorWithRealMessage.switch.on")){
-            final String realMessage=message;
-            message = getMessage(message, 4, arg);
-            errorWithRealMessage(realMessage,getSoaErrorLogger(),message,arg); 
-        }else{
-            message = getMessage(message, 4, arg);
-            error(getSoaErrorLogger(), message, arg);
-        }        
+    public  void requestInfo(String message, Object... arg) {
+        info(REQUEST_LOGGER, message, arg);
     }
 
-    public static void requestInfo(String message, Object... arg) {
-        info(getSoaRequestLogger(), message, arg);
+    public  void tracerInfo(String message, Object... arg) {
+        info(LOGGER, message, arg);
     }
 
-    public static void tracerInfo(String message, Object... arg) {
-        info(TRACER_LOGGER, message, arg);
-    }
-
-    public static void requestDebug(String message, Object... arg) {
-        debug(getSoaRequestLogger(), message, arg);
-    }
-
-    public static void serverSideWarn(Class<?> type, String message, Object... arg) {
-        message = getMessage(message, 4, arg);
-        warn(LoggerFactory.getLogger(type), message, arg);
-    }
-
-    public static void serverSideDebug(Class<?> type, String message, Object... arg) {
-        debug(LoggerFactory.getLogger(type), message, arg);
-    }
-
-    public static void serverSideInfo(Class<?> type, String message, Object... arg) {
-
+    public  void serverSideInfo(Class<?> type, String message, Object... arg) {
         info(LoggerFactory.getLogger(type), message, arg);
     }
 
-    public static void serverSideTrace(Class<?> type, String message, Object... arg) {
-        trace(LoggerFactory.getLogger(type), message, arg);
-    }
+  
 
 
-    public static void setSoaRequestLogger(Logger soaRequestLogger) {
-        soaRequestLogger = soaRequestLogger;
-    }
-
-
-
-    public static void setSoaErrorLogger(Logger soaErrorLogger) {
-        soaErrorLogger = soaErrorLogger;
-    }
-
-
-
-    public static enum LogLevelEnum {
-        ALL,
-        FATAL,
-        ERROR,
-        WARN,
-        INFO,
-        DEBUG,
-        TRACE;
-
-        private LogLevelEnum() {
-        }
-    }
-
-   
     /**
      * get message 
      */
     public static String getMessage(String message, int index, Object... arg) {
         try {
-            if(StringUtils.isBlank(message)){
+            if(Objects.isNull(message) || message.trim().isEmpty()){
                 message = "";
             }
             int occupations = StringUtils.countMatches(message, "{");
@@ -273,13 +253,13 @@ public class LogUtil {
         return message;
     }
 
-    private static void getError(Exception e){
+    private void getError(Exception e){
         try {
-            boolean errorOn = configCenter.isBusinessSwitchOn("CartCommonLogHelper.error.on");
             if(!errorOn){
-                error("CartCommonLogHelper.getError :",e);
+                error("LogCoreUtil.getError:",e);
             }
         }catch (Exception exception){
+            
         }
     }
 
@@ -327,14 +307,14 @@ public class LogUtil {
      */
     private static void errorWithRealMessage(String realMessage,Logger logger, String message, Object... arg) {
         try {
-            if(isLogOn(LogLevelEnum.ERROR, logger)){
+            if(isOpenByLogLevel (LogLevelEnum.ERROR, logger)){
                 if(isPassAway(realMessage)){
                     if (arg != null && arg.length > 0 && arg[0] instanceof Throwable) {
                         logger.error(message, arg[0]);
                     } else {
                         logger.error(message, arg);
                     }
-                    TRACER_LOGGER.error(message, arg);
+                    LOGGER.error(message, arg);
                 }
             }
         } catch (Exception e) {

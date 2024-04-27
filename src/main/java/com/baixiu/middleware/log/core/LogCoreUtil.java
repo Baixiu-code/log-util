@@ -1,6 +1,7 @@
 package com.baixiu.middleware.log.core;
 
 import com.alibaba.fastjson.TypeReference;
+import com.baixiu.middleware.log.enums.LogKeywordFilterConfigMap;
 import com.baixiu.middleware.log.enums.LogLevelConfigMap;
 import com.baixiu.middleware.log.enums.LoggerLevelEnum;
 import lombok.Getter;
@@ -12,10 +13,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import java.lang.reflect.Type;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Random;
+import java.util.*;
 import java.util.concurrent.RejectedExecutionException;
 
 /**
@@ -50,6 +48,8 @@ public class LogCoreUtil {
 
     @Autowired
     private LogLevelConfigMap logLevelConfigMap;
+    @Autowired
+    private LogKeywordFilterConfigMap logKeywordFilterConfigMap;
 
     
     
@@ -61,7 +61,7 @@ public class LogCoreUtil {
      * 指定的日志级别是否开启日志打印
      * @param loglevel 日志级别
      * @param logger logger 对象
-     * @return
+     * @return bool
      */
     protected  boolean isOpenByLogLevel(LoggerLevelEnum loglevel, Logger logger) {
         boolean result = false;
@@ -223,7 +223,7 @@ public class LogCoreUtil {
     /**
      * get message 
      */
-    public static String getMessage(String message, int index, Object... arg) {
+    public String getMessage(String message, int index, Object... arg) {
         try {
             if(Objects.isNull(message) || message.trim().isEmpty()){
                 message = "";
@@ -267,18 +267,17 @@ public class LogCoreUtil {
      * 根据堆栈深度printLog
      * 可支持自定义堆栈深度
      */
-    public static String getStackTraceStr(Exception exception) {
+    public String getStackTraceStr(Exception exception) {
         StackTraceElement[] stackTraceElements = exception.getStackTrace();
         if(stackTraceElements != null){
-            int stackTraceLineNum = configCenter.getBusinessConfigValueByKey("stack_line_num", 1, Integer.class);
+            int stackTraceLineNum = stackLineNum;
             stackTraceLineNum = stackTraceLineNum > stackTraceElements.length ? stackTraceElements.length : stackTraceLineNum;
-            String stackTraceStr = "";
+            StringBuilder stackTraceStr = new StringBuilder ();
             for(int i = 0;i < stackTraceLineNum;i++){
                 StackTraceElement stackTraceElement = stackTraceElements[i];
-                stackTraceStr = stackTraceStr + "--StackTrace+"+i+"--ClassName:"+stackTraceElement.getClassName()
-                        +  ",MethodName:"+stackTraceElement.getMethodName()+ ",lineNum:"+stackTraceElement.getLineNumber()+";";
+                stackTraceStr.append ("--StackTrace+").append (i).append ("--ClassName:").append (stackTraceElement.getClassName ()).append (",MethodName:").append (stackTraceElement.getMethodName ()).append (",lineNum:").append (stackTraceElement.getLineNumber ()).append (";");
             }
-            return stackTraceStr;
+            return stackTraceStr.toString ();
         }
         return "";
     }
@@ -288,10 +287,10 @@ public class LogCoreUtil {
      * @param message 过滤的具体日志关键字
      * @return false 打印。true 不打印
      */
-    private static boolean isPassAway(String message) {
+    private boolean isPassAway(String message) {
         try {
             //具体的配置关键字集合
-            HashSet<String> logFilters=configCenter.getBusinessConfigValueByKey("log_word_filter", new HashSet<>() , HashSet.class);
+            Set<String> logFilters=logKeywordFilterConfigMap.getFilterKeyWords ();
             return !logFilters.contains(message);
         } catch (Exception e) {
             return false;
@@ -305,9 +304,9 @@ public class LogCoreUtil {
      * @param message 实际拼接的日志字符串
      * @param arg 其他参数
      */
-    private static void errorWithRealMessage(String realMessage,Logger logger, String message, Object... arg) {
+    private void errorWithRealMessage(String realMessage,Logger logger, String message, Object... arg) {
         try {
-            if(isOpenByLogLevel (LogLevelEnum.ERROR, logger)){
+            if(isOpenByLogLevel(LoggerLevelEnum.ERROR, logger)){
                 if(isPassAway(realMessage)){
                     if (arg != null && arg.length > 0 && arg[0] instanceof Throwable) {
                         logger.error(message, arg[0]);

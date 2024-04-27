@@ -1,4 +1,4 @@
-package com.baixiu.middleware.log.enums;
+package com.baixiu.middleware.log.cof;
 
 import lombok.Getter;
 import lombok.Setter;
@@ -9,7 +9,6 @@ import org.springframework.context.annotation.PropertySource;
 
 import java.util.Arrays;
 import java.util.HashSet;
-import java.util.Map;
 import java.util.Set;
 
 /**

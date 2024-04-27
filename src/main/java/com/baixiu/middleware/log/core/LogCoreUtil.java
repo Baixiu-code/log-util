@@ -1,8 +1,8 @@
 package com.baixiu.middleware.log.core;
 
 import com.alibaba.fastjson.TypeReference;
-import com.baixiu.middleware.log.enums.LogKeywordFilterConfigMap;
-import com.baixiu.middleware.log.enums.LogLevelConfigMap;
+import com.baixiu.middleware.log.cof.LogKeywordFilterConfigMap;
+import com.baixiu.middleware.log.cof.LogLevelConfigMap;
 import com.baixiu.middleware.log.enums.LoggerLevelEnum;
 import lombok.Getter;
 import lombok.Setter;
@@ -30,9 +30,8 @@ public class LogCoreUtil {
     private static Logger ERROR_LOGGER = LoggerFactory.getLogger("LOGGER-ERROR");
     private static Logger REQUEST_LOGGER = LoggerFactory.getLogger("LOGGER-REQUEST");
     
-    static Type logConfigMapType = (new TypeReference<Map<String, Integer>>() {}).getType();
     
-    static final Random random = new Random();
+    private static final Random random = new Random();
 
     /**
      * 堆栈打印深度
@@ -50,7 +49,6 @@ public class LogCoreUtil {
     private LogLevelConfigMap logLevelConfigMap;
     @Autowired
     private LogKeywordFilterConfigMap logKeywordFilterConfigMap;
-
     
     
 
@@ -76,12 +74,6 @@ public class LogCoreUtil {
                 case DEBUG:
                     result = logger.isDebugEnabled();
                     break;
-                case ERROR:
-                    result = logger.isErrorEnabled();
-                    break;
-                case FATAL:
-                    result = logger.isErrorEnabled();
-                    break;
                 case TRACE:
                     result = logger.isTraceEnabled();
                     break;
@@ -101,16 +93,16 @@ public class LogCoreUtil {
             }
             Map<String, Integer> config = logLevelConfigMap.getLOGGER_LEVEL_MAP ();
             if (config != null && !config.isEmpty()) {
-                Integer range = (Integer) config.get(LoggerLevelEnum.ALL.name());
+                Integer range = config.get(LoggerLevelEnum.ALL.name());
                 if (range == null) {
-                    range = (Integer) config.get(logger.getName());
+                    range = config.get(logger.getName());
                 }
 
                 if (range == null) {
-                    range = (Integer) config.get(loglevel.name());
+                    range = config.get(loglevel.name());
                 }
 
-                return range == null ? true : (range.intValue() >= 0 && range.intValue() < 100 ? (range.intValue() == 0 ? false : random.nextInt(100) < range.intValue()) : true);
+                return range == null || (range < 0 || range >= 100 || (range != 0 && random.nextInt (100) < range));
             } else {
                 return true;
             }

@@ -1,4 +1,4 @@
-package com.baixiu.middleware.log.enums;
+package com.baixiu.middleware.log.cof;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Configuration;
